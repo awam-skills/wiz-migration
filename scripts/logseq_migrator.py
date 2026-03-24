@@ -469,6 +469,15 @@ def fix_asset_paths(pages_dir: Path) -> Dict:
 
     for md_file in md_files:
         try:
+            # 计算从 md 文件到 pages 目录的相对深度，用于生成正确的 assets 路径
+            rel_path = md_file.relative_to(pages_dir)
+            depth = len(rel_path.parts) - 1  # 减1是因为 rel_path 包含文件名
+            # 生成正确数量的 "../" 前缀
+            if depth > 0:
+                assets_prefix = "../" * (depth + 1)  # +1 是因为要跳出 pages/ 目录
+            else:
+                assets_prefix = "../"
+
             content = md_file.read_text(encoding='utf-8')
             original_content = content
 
@@ -477,7 +486,7 @@ def fix_asset_paths(pages_dir: Path) -> Dict:
 
             # 处理 _files 格式
             # 原: ![xxx](笔记名_files/abc.png)
-            # 替: ![xxx](../assets/abc.png) - 直接放在 assets 首层
+            # 替: ![xxx](../assets/abc.png) 或 ../../assets/abc.png 等，取决于 md 文件的深度
             pattern_files = re.compile(r'(!?)\[([^\]]*)\]\(([^\s\[]+)_files/([^)]+)\)')
             matches_files = pattern_files.findall(content)
             if matches_files:
@@ -485,7 +494,7 @@ def fix_asset_paths(pages_dir: Path) -> Dict:
                     old_pattern = f"{prefix}[{alt_text}]({note_name}_files/{file_name})"
                     # 保留原始的 alt text，如果为空则使用文件名
                     display_text = alt_text if alt_text else file_name
-                    new_pattern = f"{prefix}[{display_text}](../assets/{file_name})"
+                    new_pattern = f"{prefix}[{display_text}]({assets_prefix}assets/{file_name})"
                     content = content.replace(old_pattern, new_pattern)
                 stats["fixed"] += len(matches_files)
 

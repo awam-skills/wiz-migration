@@ -1,7 +1,7 @@
 ---
 name: wiz-migration
 description: 为知笔记数据迁移辅助技能，提供从检测存储目录到完整导出和附件迁移的端到端解决方案
-version: 2.0.0
+version: 1.0.0
 author: OpenClaw Assistant
 supported_models: ["*"]
 tags: ["migration", "wiz", "笔记", "数据迁移", "文档处理"]

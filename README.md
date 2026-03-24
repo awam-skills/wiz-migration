@@ -1,10 +1,19 @@
-# 为知笔记迁移技能 (Wiz Migration)
+# 为知笔记迁移技能
 
-> 版本: 1.0.0 | 作者: OpenClaw Assistant
+为知笔记数据迁移工具，提供完整的自动化迁移流程。
 
-为知笔记数据迁移辅助工具，提供自动化检测、交互式引导和一键迁移功能。
+## 核心功能
 
-## 快速使用
+- 🔍 **智能检测** - 自动定位为知笔记数据目录
+- 📝 **导出指南** - 生成详细的HTML导出操作说明
+- 📎 **附件迁移** - 批量复制所有附件文件
+- 🔄 **格式转换** - 使用Pandoc将HTML批量转换为Markdown
+- 🔧 **路径修复** - 自动修复附件引用路径
+- 🖥️ **跨平台支持** - Windows / macOS / Linux
+
+## 快速开始
+
+### 1. 启动迁移向导
 
 ```bash
 # 启动交互式向导
@@ -14,287 +23,92 @@ python -m wiz_migration
 python bin/wiz-migrate
 ```
 
-## 功能特点
+### 2. 按照向导步骤操作
 
-- 🔍 **智能检测**：自动查找为知笔记数据目录
-- 📝 **导出指南**：生成详细的 HTML 导出操作指南
-- 📎 **附件迁移**：批量复制所有附件文件
-- 🔄 **Pandoc 转换**：自动安装 Pandoc，批量转换 HTML → Markdown
-- 🔧 **Logseq 适配**：自动修复附件路径，处理 _files 和 _Attachments 引用
-- 📎 **附件插入**：在 Markdown 文件尾部添加附件区域
-- 🖥️ **跨平台**：支持 Windows/macOS/Linux
-- ⚡ **增量复制**：自动跳过已存在的文件
-- ✅ **完整测试**：提供多种测试脚本验证功能
+向导将引导完成完整迁移流程：
+1. 检测为知笔记数据目录
+2. 生成导出指南（保存为 `wiz_export_guide.md`）
+3. 迁移附件文件
+4. 转换HTML到Markdown格式
+5. 修复附件引用路径
+6. 完成检查和验证
 
-## 主要功能
+## 主要模块
 
-### 1. 自动检测数据目录
-
-自动识别标准安装路径：
-- `C:\Users\Administrator\Documents\My Knowledge\Data`
-- `$HOME/Documents/My Knowledge/Data`
-
-如果自动检测失败，支持手动输入路径。
-
-### 2. 生成导出指南
-
-在 `wiz_export_guide.md` 中生成：
-- 为知笔记导出的详细步骤
-- 关键选项说明（避免常见错误）
-- 目录结构示例
-- 导出后检查清单
-
-**关键提醒：**
-- ✅ 必须选择"导出为多个网页文件（含附件）"
-- ❌ 不要选择"单个 HTML 文件"（附件会被内嵌）
-- ❌ 不要勾选"渲染 Markdown 笔记"（会丢失结构）
-
-### 3. 附件批量迁移
-
-自动复制所有 `_Attachments` 目录：
-- 已存在自动跳过
-- 可重复执行，不覆盖
-- 提供详细进度和统计
-
-同时提供 Windows 批处理脚本 `copy_attachments.bat` 供独立使用。
-
-### 4. Pandoc 自动安装与转换
-
-**自动安装 Pandoc**（支持 Windows/macOS/Linux）：
-- Windows：winget / chocolatey / scoop
-- macOS：Homebrew / MacPorts
-- Linux：apt / dnf / yum / pacman
-
-**批量转换 HTML → Markdown**：
-- 自动检测 Pandoc，未安装则尝试自动安装
-- 递归扫描所有子目录的 HTML 文件
-- 保留附件引用（_files 目录）
-- 跳过已存在的 Markdown 文件（可重复运行）
-
-### 5. 交互式向导
-
-`start_wizard()` 提供完整的一步一步迁移流程：
-1. 检测数据目录
-2. 生成导出指南
-3. 迁移附件
-4. 转换 HTML → Markdown
-5. 适配 Logseq（修复附件路径）
-6. 完成检查和后续建议
-
-### 6. Logseq 适配
-
-**修复附件路径：**
-- 自动计算相对路径，根据文件深度生成正确的 `../` 前缀
-- 处理 `_files` 引用：转换为 `../assets/` 路径
-- 处理 `_Attachments` 引用：移除原文引用，在尾部添加附件区域
-- 支持附件映射文件，准确匹配笔记与附件目录
-
-**附件区域格式：**
-```markdown
-
----
-
-## 附件
-
-![附件名](../../assets/attachments/笔记名_Attachments/文件名)
+### 核心脚本
 
 ```
-
-### 7. 测试功能
-
-提供多种测试脚本验证功能正确性：
-
-**快速测试**（推荐）：
-```bash
-python tests/quick_test.py
+scripts/
+├── detector.py           # 数据目录检测
+├── guide_generator.py    # 导出指南生成
+├── migrator.py           # 主迁移逻辑
+├── pandoc_converter.py   # HTML → Markdown 转换
+├── add_attachments.py    # 附件管理和路径修复
+└── copy_attachments.bat  # Windows批处理脚本
 ```
 
-**完整单元测试**：
-```bash
-python tests/test_attachment_unit.py
-```
+### 参考文档
 
-**交互式测试**：
-```bash
-python tests/test_attachment_simple.py
-```
+详细技术文档见 `references/` 目录：
+- `wiz_directory_structure.md` - 为知笔记目录结构详解
+- `export_requirements.md` - 导出格式要求说明
+- `pandoc_usage.md` - Pandoc转换配置和最佳实践
 
-详见 [测试指南](docs/test_guide.md)。
+## API使用方法
 
-## API 使用方法
+### 完整工作流
 
 ```python
-from wiz_migration import (
-    detect_wiz_data_dir,
-    generate_export_guide,
-    run_attachment_migration,
-    convert_with_pandoc,
-    interactive_convert,
-    start_wizard
-)
-
-# 检测数据目录
-data_dir = detect_wiz_data_dir()
-
-# 生成导出指南
-guide_path = generate_export_guide(
-    export_dir="C:/Wiz_Export",
-    output_file="export_guide.md"
-)
-
-# 迁移附件
-result = run_attachment_migration(
-    source_dir="C:/Users/Admin/Documents/My Knowledge",
-    target_dir="G:/Data/wiz"
-)
-
-# 一键转换 HTML → Markdown（自动安装 Pandoc）
-result = convert_with_pandoc(
-    export_dir="C:/Wiz_Export",  # 为知笔记导出目录
-    output_dir="C:/Wiz_Markdown",  # 输出目录（可选，默认同源目录）
-    auto_install=True,  # 自动安装 Pandoc
-    skip_existing=True  # 跳过已存在的 MD 文件
-)
-
-# 交互式转换向导
-interactive_convert()
-
-# 完整向导
+from wiz_migration import start_wizard
 start_wizard()
 ```
 
-### Logseq 适配 API
+### 独立功能模块
 
 ```python
-from scripts.logseq_migrator import fix_asset_paths
+# 检测数据目录
+from wiz_migration import detect_wiz_data_dir
+data_dir = detect_wiz_data_dir()
 
-# 修复附件路径
-pages_dir = Path("G:/Data/wiz-c/pages")
-stats = fix_asset_paths(pages_dir, attachment_mapping)
+# 生成导出指南
+from wiz_migration import generate_export_guide
+guide_path = generate_export_guide("C:/Wiz_Export")
 
-print(f"修复: {stats['fixed']} 处")
-print(f"添加附件: {stats['attachments_added']} 个")
-```
+# 迁移附件
+from wiz_migration import run_attachment_migration
+result = run_attachment_migration("C:/源目录", "D:/目标目录")
 
-## 目录结构
-
-```
-wiz-migration/
-├── SKILL.md              # 技能说明文档
-├── README.md             # 本文件
-├── __init__.py           # 包入口
-├── CHANGELOG.md          # 更新日志
-├── tests/                # 测试脚本目录
-│   ├── README.md         # 测试说明
-│   ├── quick_test.py     # 快速测试 ⭐
-│   ├── test_attachment_unit.py     # 单元测试
-│   ├── test_attachment_simple.py   # 交互式测试
-│   ├── test_attachment_insertion.py # 完整测试
-│   ├── test_funcs.py     # 基础功能测试
-│   └── test_imports.py   # 导入测试
-├── docs/                 # 文档目录
-│   ├── test_guide.md     # 测试指南
-│   └── attachment_insertion_test.md # 附件测试文档
-├── bin/
-│   ├── wiz-migrate       # 可执行入口（主程序）
-│   └── __init__.py
-├── scripts/
-│   ├── detector.py       # 数据目录检测
-│   ├── guide_generator.py  # 导出指南生成
-│   ├── migrator.py       # 附件迁移逻辑
-│   ├── pandoc_converter.py # HTML → Markdown 转换
-│   ├── logseq_migrator.py # Logseq 迁移和附件处理
-│   ├── copy_attachments.bat # Windows 批处理脚本
-│   └── __init__.py
-└── templates/
-    └── (动态生成的模板文件)
-```
-
-## 为知笔记数据目录结构
-
-```
-My Knowledge/
-├── Data/
-│   ├── 账号1/
-│   │   ├── index/       # 笔记索引
-│   │   └── attachments/ # 账号附件
-│   └── 账号2/
-└── _Attachments/        # 全局附件目录
-```
-
-## 导出后的目录结构
-
-```
-Wiz_Export/
-├── 笔记本1/
-│   ├── 笔记1.html
-│   ├── 笔记1_files/    # 该笔记的附件
-│   └── 笔记2.html
-└── 笔记本2/
-    └── 笔记3_files/
+# 格式转换
+from wiz_migration import convert_with_pandoc
+result = convert_with_pandoc("C:/Wiz_Export", "C:/Wiz_Markdown")
 ```
 
 ## 系统要求
 
-- Python 3.8+
+- Python 3.6+
 - 操作系统：Windows / Linux / macOS
 - 为知笔记客户端（用于导出）
 - 足够的磁盘空间
 
 ## 注意事项
 
-1. **备份优先**：迁移前务必备份整个 `My Knowledge` 目录
-2. **导出格式**：必须使用"多个网页文件（含附件）"格式
-3. **路径安全**：避免路径包含特殊字符或空格
-4. **权限要求**：需要读取源目录、写入目标目录的权限
-5. **增量复制**：脚本会自动跳过已存在的文件，可安全重复运行
+1. **备份原始数据** - 迁移前务必备份为知笔记数据
+2. **导出格式** - 必须选择"多个网页文件（含附件）"格式
+3. **路径安全** - 避免路径包含特殊字符或空格
+4. **权限要求** - 需要读取源目录、写入目标目录的权限
+5. **增量复制** - 脚本自动跳过已存在文件，可安全重复运行
 
-## 常见问题
+## 技术支持
 
-### Q: 为什么自动检测不到数据目录？
+如有问题，请检查：
+- 是否为知笔记导出格式正确
+- 是否有足够的文件读写权限
+- 路径是否正确
 
-A: 可能是非标准安装路径或中文用户名。请手动输入完整路径。
-
-### Q: 导出的 HTML 文件打不开？
-
-A: 1) 确保用浏览器打开；2) 检查 `_files` 文件夹是否存在；3) 确认文件未被损坏。
-
-### Q: 图片不显示？
-
-A: 检查 `_files` 文件夹是否与 `.html` 文件在同一目录，路径是否为相对路径。
-
-### Q: 附件复制失败？
-
-A: 检查是否有足够的磁盘空间和文件读写权限。
-
-### Q: Pandoc 安装失败怎么办？
-
-A: 
-1. Windows: 手动下载安装包 https://github.com/jgm/pandoc/releases/latest
-2. macOS: 运行 `brew install pandoc`
-3. Linux: 运行 `sudo apt install pandoc` (Ubuntu) 或对应发行版命令
-
-### Q: 转换后的 Markdown 格式不对？
-
-A: 
-1. 检查 Pandoc 版本，建议使用最新版本
-2. 某些复杂 HTML 可能有兼容性问题，可尝试手动调整
-3. 图片路径可能需要手动修复
-
-## 后续步骤
-
-迁移完成后建议：
-1. 使用本技能的 Pandoc 转换功能：`convert_with_pandoc()` 或 `interactive_convert()`
-2. 运行 Logseq 适配：`fix_asset_paths()` 修复附件路径
-3. 导入 Obsidian / Logseq / Notion 等笔记软件
-4. 在新笔记系统中建立双向链接
-5. 清理重复内容
-6. 运行测试验证：`python tests/quick_test.py`
-
-## License
+## 许可证
 
 MIT
 
 ---
 
-**注意**：本技能仅作为迁移辅助工具，不对数据丢失负责。请始终保留原始备份，直至确认迁移完成。
+**注意**：本技能仅作为迁移辅助工具，请务必保留原始数据备份。

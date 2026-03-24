@@ -439,6 +439,9 @@ def move_markdown_to_pages(
                 # 跳过 _Attachments 目录下的 Markdown 文件
                 if any(part.endswith("_Attachments") for part in md_file.parts):
                     continue
+                # 跳过 _files 目录下的 Markdown 文件
+                if any(part.endswith("_files") for part in md_file.parts):
+                    continue
                 md_files.append(md_file)
 
     print(f"找到 {len(md_files)} 个 Markdown 文件")
@@ -447,12 +450,36 @@ def move_markdown_to_pages(
         print("⚠️  未找到 Markdown 文件")
         return stats
 
+    # 统计同名文件（按文件名，不含路径）用于重名处理
+    name_counts: Dict[str, int] = {}
+    for md_file in md_files:
+        file_name = md_file.name
+        name_counts[file_name] = name_counts.get(file_name, 0) + 1
+
     # 用于检测同名已存在的文件（用于MD5比对）
     for md_file in md_files:
         try:
             # 计算相对于 source_dir 的路径，保持原目录结构
             rel_path = md_file.relative_to(source_dir)
-            dest_file = pages_dir / rel_path  # 使用完整相对路径
+            file_name = md_file.name
+
+            # 对全量子目录中的重名文件，使用“相对路径前缀+文件名”扁平化到 pages 根目录
+            # 示例: 01计算机/02学习方法/总结.md -> 01计算机_02学习方法_总结.md
+            if name_counts.get(file_name, 0) > 1:
+                rel_parts = list(rel_path.parts)
+                flattened_name = "_".join(rel_parts)
+                dest_file = pages_dir / flattened_name
+            else:
+                dest_file = pages_dir / rel_path  # 非重名文件保留原目录结构
+
+            # 读取原始内容，并在顶部写入 Logseq 页面属性
+            source_content = md_file.read_text(encoding='utf-8')
+            rel_path_for_property = str(rel_path).replace("\\", "/")
+            page_properties = (
+                f"original-path:: {rel_path_for_property}\n"
+                f"source:: 为知笔记\n\n"
+            )
+            new_content = page_properties + source_content
 
             # 确保目标目录存在
             dest_file.parent.mkdir(parents=True, exist_ok=True)
@@ -461,8 +488,8 @@ def move_markdown_to_pages(
             if dest_file.exists():
                 # 先检查 MD5 是否一致
                 try:
-                    src_md5 = calculate_md5(md_file)
-                    dest_md5 = calculate_md5(dest_file)
+                    src_md5 = hashlib.md5(new_content.encode('utf-8')).hexdigest()
+                    dest_md5 = hashlib.md5(dest_file.read_bytes()).hexdigest()
                     if src_md5 == dest_md5:
                         print(f"    ⏭️  内容一致，跳过: {rel_path} (MD5: {src_md5[:8]}...)")
                         stats["skipped"] += 1
@@ -490,10 +517,13 @@ def move_markdown_to_pages(
                     print(f"    ⚠️  覆盖: {rel_path}")
 
 
-            # 复制而不是移动，保留原文件
-            shutil.copy2(str(md_file), str(dest_file))
+            # 写入转换后的内容（保留原文件不变）
+            dest_file.write_text(new_content, encoding='utf-8')
             stats["copied"] += 1
-            print(f"    ✅ 复制: {rel_path} -> pages/")
+            if name_counts.get(file_name, 0) > 1:
+                print(f"    ✅ 复制(重名重写): {rel_path} -> pages/{dest_file.name}")
+            else:
+                print(f"    ✅ 复制: {rel_path} -> pages/")
 
         except Exception as e:
             print(f"    ❌ 复制失败 {md_file.name}: {e}")

@@ -374,21 +374,32 @@ def run_stage3_logseq(export_dir: str):
     template_content = load_template("step3_logseq_migration.md")
     print(template_content)
 
-    # 获取 Logseq 图谱目录
+    # 获取 Logseq 转化后导出目录
     print("\n" + "=" * 60)
     print("开始 Logseq 迁移")
     print("=" * 60)
 
-    graph_dir = get_user_input(
-        "\n请输入转换后导出路径",
-        remember_key='logseq_graph_dir',
-        default='G:\\Data\\knowledge\\wiz-b'
-    )
+    # 尝试从配置中获取记忆值，如果没有则使用导出目录作为默认值
+    remembered_graph_dir = _config.get('logseq_graph_dir')
+    if remembered_graph_dir:
+        graph_dir = get_user_input(
+            "\n请输入转换后导出路径",
+            remember_key='logseq_graph_dir'
+        )
+    else:
+        # 首次使用，建议使用导出目录
+        suggested_dir = export_dir
+        print(f"\n💡 建议的输出路径: {suggested_dir}")
+        graph_dir = get_user_input(
+            "请输入转换后导出路径（直接回车使用建议路径）",
+            default=suggested_dir,
+            remember_key='logseq_graph_dir'
+        )
 
     while True:
         if not graph_dir:
             print("❌ 路径不能为空")
-            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir')
             continue
 
         if os.path.exists(graph_dir):
@@ -404,9 +415,9 @@ def run_stage3_logseq(export_dir: str):
                 break
             except Exception as e:
                 print(f"❌ 创建目录失败: {e}")
-                graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+                graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir')
         else:
-            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir')
 
     # 确认 pages 和 assets 目录存在
     graph_path = Path(graph_dir)
@@ -420,7 +431,7 @@ def run_stage3_logseq(export_dir: str):
         print(f"⚠️  assets/ 目录不存在，将自动创建: {assets_dir}")
         assets_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n✅ 图谱目录验证通过: {graph_dir}")
+    print(f"\n✅ 转化后导出目录验证通过: {graph_dir}")
     print(f"   pages/: {pages_dir}")
     print(f"   assets/: {assets_dir}")
 
@@ -902,7 +913,7 @@ def start_wizard():
     elif 'stage3' in results:
         print(f"  ⚠️  阶段3: 转换为其他格式 - 已跳过或未实现")
 
-    print("\n祝你使用愉快！")
+    print("\nBy Awam M Wang(wm.keepgoing@gmail.com)")
 
 
 if __name__ == "__main__":

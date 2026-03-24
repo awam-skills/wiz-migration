@@ -20,8 +20,11 @@ python bin/wiz-migrate
 - 📝 **导出指南**：生成详细的 HTML 导出操作指南
 - 📎 **附件迁移**：批量复制所有附件文件
 - 🔄 **Pandoc 转换**：自动安装 Pandoc，批量转换 HTML → Markdown
+- 🔧 **Logseq 适配**：自动修复附件路径，处理 _files 和 _Attachments 引用
+- 📎 **附件插入**：在 Markdown 文件尾部添加附件区域
 - 🖥️ **跨平台**：支持 Windows/macOS/Linux
 - ⚡ **增量复制**：自动跳过已存在的文件
+- ✅ **完整测试**：提供多种测试脚本验证功能
 
 ## 主要功能
 
@@ -74,7 +77,49 @@ python bin/wiz-migrate
 1. 检测数据目录
 2. 生成导出指南
 3. 迁移附件
-4. 完成检查和后续建议
+4. 转换 HTML → Markdown
+5. 适配 Logseq（修复附件路径）
+6. 完成检查和后续建议
+
+### 6. Logseq 适配
+
+**修复附件路径：**
+- 自动计算相对路径，根据文件深度生成正确的 `../` 前缀
+- 处理 `_files` 引用：转换为 `../assets/` 路径
+- 处理 `_Attachments` 引用：移除原文引用，在尾部添加附件区域
+- 支持附件映射文件，准确匹配笔记与附件目录
+
+**附件区域格式：**
+```markdown
+
+---
+
+## 附件
+
+![附件名](../../assets/attachments/笔记名_Attachments/文件名)
+
+```
+
+### 7. 测试功能
+
+提供多种测试脚本验证功能正确性：
+
+**快速测试**（推荐）：
+```bash
+python tests/quick_test.py
+```
+
+**完整单元测试**：
+```bash
+python tests/test_attachment_unit.py
+```
+
+**交互式测试**：
+```bash
+python tests/test_attachment_simple.py
+```
+
+详见 [测试指南](docs/test_guide.md)。
 
 ## API 使用方法
 
@@ -118,6 +163,19 @@ interactive_convert()
 start_wizard()
 ```
 
+### Logseq 适配 API
+
+```python
+from scripts.logseq_migrator import fix_asset_paths
+
+# 修复附件路径
+pages_dir = Path("G:/Data/wiz-c/pages")
+stats = fix_asset_paths(pages_dir, attachment_mapping)
+
+print(f"修复: {stats['fixed']} 处")
+print(f"添加附件: {stats['attachments_added']} 个")
+```
+
 ## 目录结构
 
 ```
@@ -125,6 +183,18 @@ wiz-migration/
 ├── SKILL.md              # 技能说明文档
 ├── README.md             # 本文件
 ├── __init__.py           # 包入口
+├── CHANGELOG.md          # 更新日志
+├── tests/                # 测试脚本目录
+│   ├── README.md         # 测试说明
+│   ├── quick_test.py     # 快速测试 ⭐
+│   ├── test_attachment_unit.py     # 单元测试
+│   ├── test_attachment_simple.py   # 交互式测试
+│   ├── test_attachment_insertion.py # 完整测试
+│   ├── test_funcs.py     # 基础功能测试
+│   └── test_imports.py   # 导入测试
+├── docs/                 # 文档目录
+│   ├── test_guide.md     # 测试指南
+│   └── attachment_insertion_test.md # 附件测试文档
 ├── bin/
 │   ├── wiz-migrate       # 可执行入口（主程序）
 │   └── __init__.py
@@ -132,6 +202,8 @@ wiz-migration/
 │   ├── detector.py       # 数据目录检测
 │   ├── guide_generator.py  # 导出指南生成
 │   ├── migrator.py       # 附件迁移逻辑
+│   ├── pandoc_converter.py # HTML → Markdown 转换
+│   ├── logseq_migrator.py # Logseq 迁移和附件处理
 │   ├── copy_attachments.bat # Windows 批处理脚本
 │   └── __init__.py
 └── templates/
@@ -213,9 +285,11 @@ A:
 
 迁移完成后建议：
 1. 使用本技能的 Pandoc 转换功能：`convert_with_pandoc()` 或 `interactive_convert()`
-2. 导入 Obsidian / Logseq / Notion 等笔记软件
-3. 在新笔记系统中建立双向链接
-4. 清理重复内容
+2. 运行 Logseq 适配：`fix_asset_paths()` 修复附件路径
+3. 导入 Obsidian / Logseq / Notion 等笔记软件
+4. 在新笔记系统中建立双向链接
+5. 清理重复内容
+6. 运行测试验证：`python tests/quick_test.py`
 
 ## License
 

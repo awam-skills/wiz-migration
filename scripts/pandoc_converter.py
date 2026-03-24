@@ -638,20 +638,68 @@ def batch_convert(
     skipped = 0
     failed = 0
     errors = []
-    
+
+    # 文件存在策略
+    _file_exists_strategy = None
+
     for html_file in html_files:
         # 计算相对路径
         rel_path = html_file.relative_to(source_path)
-        
+
         # 计算输出路径
         md_file = output_path / rel_path.with_suffix('.md')
-        
-        # 检查是否跳过
-        if skip_existing and md_file.exists():
-            if verbose:
-                print(f"⏭️  跳过: {rel_path}")
-            skipped += 1
-            continue
+
+        # 检查文件是否已存在
+        if md_file.exists():
+            # 首次遇到已存在文件，询问策略
+            if _file_exists_strategy is None and not skip_existing:
+                print("\n" + "=" * 60)
+                print("⚠️  检测到目标 Markdown 文件已存在")
+                print("=" * 60)
+                print(f"文件: {rel_path}")
+                print("\n请选择处理策略（本次转换全程有效）:")
+                print("  1. 覆盖 (overwrite) - 替换已有 Markdown 文件")
+                print("  2. 跳过 (skip) - 保留已有文件，不转换")
+                print("  3. 覆盖所有 (overwrite-all) - 覆盖此文件及后续所有已存在文件")
+                print("  4. 跳过所有 (skip-all) - 跳过此文件及后续所有已存在文件")
+
+                while True:
+                    choice = input("\n请输入选择 (1/2/3/4): ").strip()
+                    if choice == '1':
+                        _file_exists_strategy = 'overwrite'
+                        print("✅ 已选择: 覆盖已有文件")
+                        break
+                    elif choice == '2':
+                        _file_exists_strategy = 'skip'
+                        print("⏭️  已选择: 跳过已有文件")
+                        break
+                    elif choice == '3':
+                        _file_exists_strategy = 'overwrite-all'
+                        print("✅ 已选择: 覆盖已有文件（全部）")
+                        break
+                    elif choice == '4':
+                        _file_exists_strategy = 'skip-all'
+                        print("⏭️  已选择: 跳过已有文件（全部）")
+                        break
+                    else:
+                        print("无效选择，请输入 1、2、3 或 4")
+
+            # 根据策略处理
+            if skip_existing or _file_exists_strategy in ('skip', 'skip-all'):
+                if verbose:
+                    print(f"⏭️  跳过: {rel_path}")
+                skipped += 1
+                continue
+            elif _file_exists_strategy in ('overwrite', 'overwrite-all'):
+                if verbose:
+                    print(f"🔄 覆盖: {rel_path}")
+                # 继续执行转换（会覆盖已有文件）
+            else:
+                # 默认跳过
+                if verbose:
+                    print(f"⏭️  跳过: {rel_path}")
+                skipped += 1
+                continue
         
         # 确保输出目录存在
         md_file.parent.mkdir(parents=True, exist_ok=True)
@@ -927,6 +975,9 @@ def batch_convert_with_html2text(
     failed = 0
     errors = []
 
+    # 文件存在策略
+    _file_exists_strategy = None
+
     for html_file in html_files:
         # 计算相对路径
         rel_path = html_file.relative_to(source_path)
@@ -934,12 +985,57 @@ def batch_convert_with_html2text(
         # 计算输出路径
         md_file = output_path / rel_path.with_suffix('.md')
 
-        # 检查是否跳过
-        if skip_existing and md_file.exists():
-            if verbose:
-                print(f"⏭️  跳过: {rel_path}")
-            skipped += 1
-            continue
+        # 检查文件是否已存在
+        if md_file.exists():
+            # 首次遇到已存在文件，询问策略
+            if _file_exists_strategy is None and not skip_existing:
+                print("\n" + "=" * 60)
+                print("⚠️  检测到目标 Markdown 文件已存在")
+                print("=" * 60)
+                print(f"文件: {rel_path}")
+                print("\n请选择处理策略（本次转换全程有效）:")
+                print("  1. 覆盖 (overwrite) - 替换已有 Markdown 文件")
+                print("  2. 跳过 (skip) - 保留已有文件，不转换")
+                print("  3. 覆盖所有 (overwrite-all) - 覆盖此文件及后续所有已存在文件")
+                print("  4. 跳过所有 (skip-all) - 跳过此文件及后续所有已存在文件")
+
+                while True:
+                    choice = input("\n请输入选择 (1/2/3/4): ").strip()
+                    if choice == '1':
+                        _file_exists_strategy = 'overwrite'
+                        print("✅ 已选择: 覆盖已有文件")
+                        break
+                    elif choice == '2':
+                        _file_exists_strategy = 'skip'
+                        print("⏭️  已选择: 跳过已有文件")
+                        break
+                    elif choice == '3':
+                        _file_exists_strategy = 'overwrite-all'
+                        print("✅ 已选择: 覆盖已有文件（全部）")
+                        break
+                    elif choice == '4':
+                        _file_exists_strategy = 'skip-all'
+                        print("⏭️  已选择: 跳过已有文件（全部）")
+                        break
+                    else:
+                        print("无效选择，请输入 1、2、3 或 4")
+
+            # 根据策略处理
+            if skip_existing or _file_exists_strategy in ('skip', 'skip-all'):
+                if verbose:
+                    print(f"⏭️  跳过: {rel_path}")
+                skipped += 1
+                continue
+            elif _file_exists_strategy in ('overwrite', 'overwrite-all'):
+                if verbose:
+                    print(f"🔄 覆盖: {rel_path}")
+                # 继续执行转换（会覆盖已有文件）
+            else:
+                # 默认跳过
+                if verbose:
+                    print(f"⏭️  跳过: {rel_path}")
+                skipped += 1
+                continue
 
         # 确保输出目录存在
         md_file.parent.mkdir(parents=True, exist_ok=True)

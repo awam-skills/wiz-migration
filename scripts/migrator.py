@@ -211,16 +211,21 @@ def _run_batch_script(script_path, source_dir, target_dir):
             temp_script.unlink()
 
 
-def _copy_attachments_python(source: Path, target: Path, stats: Dict):
+def _copy_attachments_python(source: Path, target: Path, stats: Dict) -> Dict:
     """
     Python 实现附件复制
 
     查找并复制所有 _Attachments 目录，保持目录结构一致
     目标路径不存在时先建立，支持深度拷贝，已存在自动跳过
+
+    返回附件映射字典，用于后续 Markdown 转换阶段匹配
     """
     print(f"源目录: {source}")
     print(f"目标目录: {target}")
     print()
+
+    # 创建附件映射字典：{笔记名: (原始相对路径, 目标相对路径)}
+    attachment_mapping = {}
 
     # 检查是否为 all 目录（为知笔记的笔记目录）
     # all 目录下的结构是笔记本分类，不需要进行一致性检查
@@ -230,6 +235,7 @@ def _copy_attachments_python(source: Path, target: Path, stats: Dict):
         # 检查目录一致性（仅在非 all 目录时检查）
         if not check_directory_consistency(source, target):
             stats["cancelled"] = True
+            stats["attachment_mapping"] = {}
             return stats
     else:
         print("✅ 检测到为知笔记 all 目录，跳过结构一致性检查")
@@ -249,6 +255,7 @@ def _copy_attachments_python(source: Path, target: Path, stats: Dict):
         print("请确认:")
         print("  1. 源目录是否正确")
         print("  2. 是否为导出的 Wiz 数据")
+        stats["attachment_mapping"] = {}
         return stats
 
     print(f"找到 {len(attachments_dirs)} 个附件目录\n")
@@ -266,6 +273,28 @@ def _copy_attachments_python(source: Path, target: Path, stats: Dict):
             print(f"[{idx}/{total}] 源目录: {attach_dir}")
             print(f"    目标路径: {dest_path}")
 
+            # 记录附件映射关系（用于后续 Markdown 转换）
+            # 从相对路径中提取笔记名（例如：01计算机/01编程学习/笔记名_Attachments）
+            # 对应的 Markdown 文件应该是：01计算机/01编程学习/笔记名.md
+            mapping_key = rel_path.parent  # 例如：01计算机/01编程学习
+            attach_dir_name = attach_dir.name  # 例如：笔记名_Attachments
+            note_name = attach_dir_name.replace('_Attachments', '')
+
+            # 收集附件文件列表
+            files_list = []
+            for item in attach_dir.rglob("*"):
+                if item.is_file():
+                    files_list.append(item.name)
+
+            # 记录映射：笔记名 -> (原始路径, 目标路径, 文件列表)
+            attachment_mapping[note_name] = {
+                'original_rel_path': str(rel_path),  # 原始相对路径
+                'target_rel_path': str(rel_path),  # 目标相对路径（相同结构）
+                'attach_dir_name': attach_dir_name,
+                'note_name': note_name,
+                'files': files_list  # 附件文件列表
+            }
+
             if dest_path.exists():
                 strategy = ask_file_exists_strategy()
                 if strategy == 'skip':
@@ -281,6 +310,9 @@ def _copy_attachments_python(source: Path, target: Path, stats: Dict):
                         dest_path = dest_path.parent / f"{base}_{counter}"
                         counter += 1
                     print(f"    ⚠️  重命名为: {dest_path.name}")
+                    # 更新映射中的目标路径
+                    new_rel_path = dest_path.relative_to(target)
+                    attachment_mapping[note_name]['target_rel_path'] = str(new_rel_path)
                 elif strategy == 'overwrite':
                     print(f"    ⚠️  覆盖已有目录")
 
@@ -311,12 +343,26 @@ def _copy_attachments_python(source: Path, target: Path, stats: Dict):
 
     stats["skipped"] = skip_count
 
+    # 将附件映射添加到统计信息中
+    stats["attachment_mapping"] = attachment_mapping
+
     print("=" * 60)
     print("任务完成")
     print(f"  ✅ 本次新增复制: {dir_count} 个目录")
     print(f"  ⏭️  已存在跳过: {skip_count} 个目录")
     print(f"  ❌ 失败: {stats['failed']} 个")
+    print(f"  📋 附件映射记录: {len(attachment_mapping)} 个笔记")
     print("=" * 60)
+
+    # 保存附件映射到文件（供后续阶段使用）
+    if attachment_mapping:
+        try:
+            mapping_file = target / ".attachment_mapping.json"
+            with open(mapping_file, 'w', encoding='utf-8') as f:
+                json.dump(attachment_mapping, f, indent=2, ensure_ascii=False)
+            print(f"\n💾 附件映射已保存到: {mapping_file}")
+        except Exception as e:
+            print(f"\n⚠️  附件映射保存失败: {e}")
 
     return stats
 

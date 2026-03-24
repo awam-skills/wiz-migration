@@ -458,6 +458,9 @@ def find_html_files(directory: str) -> List[Path]:
         return []
     
     for html_file in dir_path.rglob('*.html'):
+        # 跳过 _Attachments 目录下的 HTML 文件
+        if any(part.endswith("_Attachments") for part in html_file.parts):
+            continue
         html_files.append(html_file)
     
     return sorted(html_files)

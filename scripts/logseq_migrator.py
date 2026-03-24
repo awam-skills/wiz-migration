@@ -432,9 +432,14 @@ def move_markdown_to_pages(
     # 递归查找所有 .md 文件，保持原目录结构
     md_files = []
     for root, dirs, files in os.walk(source_dir):
+        root_path = Path(root)
         for f in files:
             if f.endswith(".md"):
-                md_files.append(Path(root) / f)
+                md_file = root_path / f
+                # 跳过 _Attachments 目录下的 Markdown 文件
+                if any(part.endswith("_Attachments") for part in md_file.parts):
+                    continue
+                md_files.append(md_file)
 
     print(f"找到 {len(md_files)} 个 Markdown 文件")
 

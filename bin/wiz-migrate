@@ -1,0 +1,931 @@
+#!/usr/bin/env python3
+"""
+为知笔记迁移向导 - 主程序
+提供交互式迁移流程，引导用户完成完整的数据迁移
+"""
+
+import os
+import sys
+import json
+from pathlib import Path
+
+# 添加脚本目录到路径
+SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+# 模板目录
+TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
+# 配置目录（存储用户记忆）
+CONFIG_DIR = Path.home() / ".wiz-migration"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+
+class ConfigManager:
+    """配置管理器 - 记忆用户输入"""
+
+    def __init__(self):
+        self.config = self._load_config()
+
+    def _load_config(self) -> dict:
+        """从文件加载配置"""
+        if CONFIG_FILE.exists():
+            try:
+                return json.loads(CONFIG_FILE.read_text(encoding='utf-8'))
+            except Exception:
+                pass
+        return {}
+
+    def _save_config(self):
+        """保存配置到文件"""
+        try:
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            CONFIG_FILE.write_text(
+                json.dumps(self.config, indent=2, ensure_ascii=False),
+                encoding='utf-8'
+            )
+        except Exception:
+            pass
+
+    def get(self, key: str, default=None):
+        """获取记忆值"""
+        return self.config.get(key, default)
+
+    def set(self, key: str, value):
+        """保存记忆值"""
+        self.config[key] = value
+        self._save_config()
+
+    def get_data_dir(self) -> str:
+        """获取记忆的数据目录"""
+        return self.get('data_dir', '')
+
+    def set_data_dir(self, value: str):
+        """保存数据目录"""
+        self.set('data_dir', value)
+
+    def get_export_dir(self) -> str:
+        """获取记忆的导出目录"""
+        return self.get('export_dir', '')
+
+    def set_export_dir(self, value: str):
+        """保存导出目录"""
+        self.set('export_dir', value)
+
+    def get_converter_choice(self) -> str:
+        """获取记忆的转换方案"""
+        return self.get('converter_choice', 'A')
+
+    def set_converter_choice(self, value: str):
+        """保存转换方案"""
+        self.set('converter_choice', value)
+
+
+# 全局配置管理器
+_config = ConfigManager()
+
+
+def load_template(template_name):
+    """从模板文件读取内容"""
+    template_path = TEMPLATES_DIR / template_name
+    if template_path.exists():
+        return template_path.read_text(encoding='utf-8')
+    return ""
+
+def clear_screen():
+    """清屏"""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def print_banner():
+    """打印欢迎横幅"""
+    print("=" * 60)
+    print("  为知笔记迁移向导 Wiz Migration Wizard")
+    print("  版本: 1.1.0")
+    print("=" * 60)
+    print()
+
+
+def print_step(step_num, title):
+    """打印步骤标题"""
+    print(f"\n{'='*60}")
+    print(f"  步骤 {step_num}: {title}")
+    print(f"{'='*60}\n")
+
+
+# ==================== 阶段选择 ====================
+
+STAGES = {
+    '1': {
+        'name': '导出为知笔记',
+        'description': '手动导出为知笔记数据为 HTML 格式',
+        'requires': [],
+        'provides': ['data_dir', 'export_dir']
+    },
+    '2': {
+        'name': '转换为 Markdown',
+        'description': '将 HTML 笔记转换为 Markdown 格式',
+        'requires': ['export_dir'],
+        'provides': ['markdown_done']
+    },
+    '3': {
+        'name': '导入到目标应用',
+        'description': '支持 Logseq / Obsidian / Notion 等',
+        'requires': ['export_dir'],
+        'provides': ['other_format_done']
+    }
+}
+
+
+def show_stage_menu():
+    """显示阶段选择菜单"""
+    print("请选择要执行的阶段（可多选，如：1,2 或 1 2）:\n")
+
+    for key, stage in STAGES.items():
+        print(f"  {key}. {stage['name']}")
+        print(f"     {stage['description']}")
+        print()
+
+
+def parse_stage_selection(selection: str) -> list:
+    """解析用户选择的阶段
+
+    Args:
+        selection: 用户输入，如 "1,2" 或 "1 2" 或 "123"
+
+    Returns:
+        list: 按执行顺序排列的阶段键列表
+    """
+    # 移除空格，用逗号分隔
+    parts = selection.replace(' ', ',').split(',')
+    stages = []
+
+    for part in parts:
+        part = part.strip()
+        if part in STAGES and part not in stages:
+            stages.append(part)
+
+    # 按固定顺序排列
+    return sorted(stages, key=lambda x: int(x))
+
+
+def check_stage_dependencies(selected_stages: list) -> tuple:
+    """检查阶段依赖是否满足
+
+    Args:
+        selected_stages: 用户选择的阶段列表
+
+    Returns:
+        tuple: (是否满足, 缺失的依赖列表)
+    """
+    # 确定所有阶段会提供的变量
+    provided = set()
+    for stage_key in selected_stages:
+        for var in STAGES[stage_key].get('provides', []):
+            provided.add(var)
+
+    # 检查每个阶段的依赖
+    missing = []
+    for stage_key in selected_stages:
+        for required in STAGES[stage_key].get('requires', []):
+            if required not in provided and required not in ['data_dir', 'export_dir']:
+                # 这些是用户输入的变量，需要单独处理
+                pass
+
+    return True, missing
+
+
+def get_export_dir_with_memory() -> str:
+    """获取导出目录（带记忆功能）"""
+    export_dir = get_user_input(
+        "\n请输入导出目标文件夹路径",
+        remember_key='export_dir'
+    )
+    while not export_dir:
+        print("路径不能为空")
+        export_dir = get_user_input("请输入导出目标文件夹路径", remember_key='export_dir')
+    return export_dir
+
+
+def get_data_dir_with_memory() -> str:
+    """获取数据目录（带记忆功能）"""
+    from detector import detect_wiz_data_dir
+    detected_dir = detect_wiz_data_dir()
+
+    if detected_dir:
+        print(f"\n✅ 自动检测到数据目录: {detected_dir}")
+        use_detected = confirm_action("使用检测到的目录？")
+        if use_detected:
+            _config.set_data_dir(detected_dir)
+            return detected_dir
+
+    print("\n⚠️  未能自动检测到数据目录")
+
+    while True:
+        user_path = get_user_input(
+            "\n请输入数据目录完整路径",
+            remember_key='data_dir'
+        )
+        if os.path.exists(user_path):
+            print(f"✅ 路径验证通过: {user_path}")
+            _config.set_data_dir(user_path)
+            return user_path
+        else:
+            print("❌ 路径不存在，请重新输入")
+
+
+def run_stage1():
+    """执行阶段1: 导出为知笔记"""
+    data_dir = get_data_dir_with_memory()
+    export_dir = get_export_dir_with_memory()
+
+    print_step(2, "手动导出为知笔记")
+    template_content = load_template("step2_export_guide.md")
+    print(template_content)
+
+    print(f"\n📁 数据目录: {data_dir}")
+    print(f"📁 导出目录: {export_dir}")
+    print("\n请按照上述指南手动导出为知笔记...")
+    prompt_continue("\n导出完成后按 Enter 继续...")
+
+    # 询问是否复制 _Attachments 目录
+    print("\n" + "=" * 60)
+    print("附件复制")
+    print("=" * 60)
+    print("\n为知笔记的原始 _Attachments 目录包含额外的附件文件")
+    print("导出 HTML 时只会生成 _files 目录")
+    print("是否将 _Attachments 目录复制到导出目录？\n")
+
+    copy_attachments = confirm_action("是否复制 _Attachments 目录？（建议复制）")
+
+    if copy_attachments:
+        print("\n正在复制 _Attachments 目录...")
+        from migrator import run_attachment_migration
+        from pathlib import Path
+
+        # 检查 data_dir 是否包含 all 子目录
+        # 为知笔记数据结构通常是: Data\账号\all
+        source_path = Path(data_dir)
+        all_dir = source_path / "all"
+
+        # 如果存在 all 子目录，使用 all 目录作为源目录
+        if all_dir.exists() and all_dir.is_dir():
+            print(f"✅ 检测到 all 子目录，将从 all 目录复制附件")
+            actual_source_dir = str(all_dir)
+        else:
+            actual_source_dir = data_dir
+
+        # 自动推断目标目录（导出目录）
+        result = run_attachment_migration(
+            source_dir=actual_source_dir,
+            target_dir=export_dir
+        )
+
+        # 显示结果
+        print("\n" + "=" * 60)
+        print("复制结果:")
+        print(f"  ✅ 成功复制: {result.get('copied', 0)} 个")
+        print(f"  ⏭️  已存在跳过: {result.get('skipped', 0)} 个")
+        print(f"  ❌ 失败: {result.get('failed', 0)} 个")
+        print("=" * 60)
+
+        if result.get('failed', 0) > 0:
+            print("\n⚠️  部分文件复制失败，请检查权限或磁盘空间")
+        else:
+            print("\n✅ _Attachments 目录复制完成")
+    else:
+        print("\n⏭️  已跳过 _Attachments 目录复制")
+
+    return {'data_dir': data_dir, 'export_dir': export_dir}
+
+
+def run_stage2(context: dict):
+    """执行阶段2: 转换为 Markdown"""
+    export_dir = context.get('export_dir')
+    if not export_dir:
+        export_dir = get_export_dir_with_memory()
+
+    return step4_convert_to_markdown(export_dir)
+
+
+def run_stage3(context: dict):
+    """执行阶段3: 导入到目标应用"""
+    export_dir = context.get('export_dir')
+    if not export_dir:
+        export_dir = get_export_dir_with_memory()
+
+    print_step(3, "导入到目标笔记应用")
+
+    # 显示子选项菜单
+    print("请选择目标应用:\n")
+    print("  1. Logseq（自动迁移附件路径）")
+    print("  2. Obsidian（直接使用 Markdown）")
+    print("  3. 返回")
+    # print("  4. 全部执行（依次执行 Logseq → Obsidian）")
+
+    choice = get_user_input("\n请输入选择 (1/2/3)", default="1")
+    # choice = get_user_input("\n请输入选择 (1/2/3/4)", default="4")
+
+    while choice not in ('1', '2', '3'):
+        print("无效选择，请输入 1、2 或 3")
+        choice = get_user_input("请输入选择 (1/2/3)", default="1")
+
+    if choice == '1':
+        return run_stage3_logseq(export_dir)
+    elif choice == '2':
+        return run_stage3_obsidian(export_dir)
+    elif choice == '4':
+        # 全部执行：先 Logseq 再 Obsidian
+        print("\n" + "=" * 60)
+        print("🚀 开始全部迁移流程")
+        print("=" * 60)
+
+        # 第一步：Logseq 迁移
+        print("\n>>> 第 1 步：Logseq 迁移")
+        logseq_result = run_stage3_logseq(export_dir)
+        if logseq_result is False:
+            print("\n⚠️  Logseq 迁移未完成或失败")
+            retry = confirm_action("是否继续执行 Obsidian 迁移？")
+            if not retry:
+                return False
+
+        # 第二步：Obsidian 迁移（静默模式）
+        print("\n>>> 第 2 步：Obsidian 迁移")
+        obsidian_result = run_stage3_obsidian(export_dir, silent=True)
+
+        # 汇总结果
+        print("\n" + "=" * 60)
+        print("📊 全部迁移完成汇总")
+        print("=" * 60)
+        print(f"  Logseq:   {'✅ 成功' if logseq_result else '⚠️ 未完成'}")
+        print(f"  Obsidian: {'✅ 成功' if obsidian_result else '⚠️ 未完成'}")
+
+        return logseq_result and obsidian_result
+    else:
+        print("已取消")
+        return None
+
+
+def run_stage3_logseq(export_dir: str):
+    """执行阶段3-Logseq: 迁移到 Logseq"""
+    print_step(3, "Logseq 导入与附件修复")
+
+    # 显示说明模板
+    template_content = load_template("step3_logseq_migration.md")
+    print(template_content)
+
+    # 获取 Logseq 图谱目录
+    print("\n" + "=" * 60)
+    print("开始 Logseq 迁移")
+    print("=" * 60)
+
+    graph_dir = get_user_input(
+        "\n请输入转换后导出路径",
+        remember_key='logseq_graph_dir',
+        default='G:\\Data\\knowledge\\wiz-b'
+    )
+
+    while True:
+        if not graph_dir:
+            print("❌ 路径不能为空")
+            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+            continue
+
+        if os.path.exists(graph_dir):
+            break
+
+        # 路径不存在，询问是否自动创建
+        print(f"❌ 路径不存在: {graph_dir}")
+        create = confirm_action("是否自动创建该目录？")
+        if create:
+            try:
+                os.makedirs(graph_dir, exist_ok=True)
+                print(f"✅ 目录已创建: {graph_dir}")
+                break
+            except Exception as e:
+                print(f"❌ 创建目录失败: {e}")
+                graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+        else:
+            graph_dir = get_user_input("请输入转换后导出路径", remember_key='logseq_graph_dir', default='G:\\Data\\knowledge\\wiz-b')
+
+    # 确认 pages 和 assets 目录存在
+    graph_path = Path(graph_dir)
+    pages_dir = graph_path / "pages"
+    assets_dir = graph_path / "assets"
+
+    if not pages_dir.exists():
+        print(f"⚠️  pages/ 目录不存在，将自动创建: {pages_dir}")
+        pages_dir.mkdir(parents=True, exist_ok=True)
+    if not assets_dir.exists():
+        print(f"⚠️  assets/ 目录不存在，将自动创建: {assets_dir}")
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n✅ 图谱目录验证通过: {graph_dir}")
+    print(f"   pages/: {pages_dir}")
+    print(f"   assets/: {assets_dir}")
+
+    # 询问是否按子目录组织（可选）
+    print("\n📁 Markdown 文件组织:")
+    use_subdir = confirm_action("是否按原笔记本分类创建子目录？")
+    subdir_name = None
+    if use_subdir:
+        subdir_name = get_user_input("请输入子目录名称（如：技术笔记），默认不生成子目录", remember_key='logseq_subdir')
+
+    # 确认开始
+    proceed = confirm_action("\n确认开始迁移？")
+    if not proceed:
+        print("已取消迁移")
+        return False
+
+    # 执行迁移
+    from logseq_migrator import run_logseq_migration
+
+    result = run_logseq_migration(
+        markdown_dir=export_dir,
+        graph_dir=graph_dir,
+        move_to_subdir=subdir_name
+    )
+
+    if result.get('success'):
+        print("\n🎉 Logseq 迁移完成！")
+        print("\n" + "=" * 60)
+        print("后续操作建议:")
+        print("=" * 60)
+        print("1. 请检查转换后输出的文件及路径是否符合要求")
+        print("   - 检查 pages/ 目录下的 md 文件")
+        print("   - 检查 assets/attachments/ 目录下的附件")
+        print("2. 导入新的笔记软件后，请检查附件和图片是否正常显示")
+        print("   - Logseq: 打开图谱 → 设置 → 图谱 → 打开图谱文件夹")
+        print("   - 检查 pages/ 和 assets/ 目录结构")
+        print()
+
+        # 询问是否删除原始数据
+        original_dir = export_dir
+        print("=" * 60)
+        print("清理建议:")
+        print("=" * 60)
+        print(f"原始数据路径: {original_dir}")
+
+        confirm1 = confirm_action("是否删除原始导出的数据？（此操作不可恢复）")
+        if confirm1:
+            confirm2 = confirm_action("⚠️ 再次确认：删除后数据将无法恢复，确定要删除吗？")
+            if confirm2:
+                try:
+                    import shutil
+                    if os.path.exists(original_dir):
+                        shutil.rmtree(original_dir)
+                        print(f"✅ 已删除原始数据: {original_dir}")
+                    else:
+                        print(f"⚠️ 目录不存在，跳过删除: {original_dir}")
+                except Exception as e:
+                    print(f"❌ 删除失败: {e}")
+                    print("请手动删除该目录")
+            else:
+                print("已取消删除")
+        else:
+            print("已跳过删除，原始数据保留")
+
+        return True
+    else:
+        print(f"\n❌ 迁移失败: {result.get('error', '未知错误')}")
+        return False
+
+
+def run_stage3_obsidian(export_dir: str, silent: bool = False):
+    """执行阶段3-Obsidian: 迁移到 Obsidian
+
+    Args:
+        export_dir: Markdown 导出目录
+        silent: 静默模式（全部执行时跳过交互提示）
+    """
+    print_step(3, "Obsidian 导入说明")
+
+    if not silent:
+        print("""
+📋 Obsidian 导入说明
+
+Obsidian 可以直接使用 Markdown 文件，无需特殊转换。
+
+导入步骤：
+1. 打开 Obsidian
+2. 打开或创建你的 Vault
+3. 将转换好的 .md 文件复制到 Vault 任意目录
+4. Obsidian 会自动索引
+
+附件说明：
+- 为知笔记的 xxx_files/ 附件需要手动复制
+- 建议在 Vault 中创建 assets/ 文件夹
+- 路径替换：xxx_files/ → assets/
+
+提示：
+- Markdown 格式兼容性好，标题、列表、代码块等都能正常显示
+- 如果需要双链功能，需要手动添加 [[链接]] 格式
+""")
+
+    # 询问是否自动复制附件到 assets/
+    if silent:
+        # 静默模式：自动尝试复制附件（使用记忆的 vault 目录）
+        from migrator import run_attachment_migration
+        vault_dir = _config.get('obsidian_vault')
+        if vault_dir and os.path.exists(vault_dir):
+            assets_target = Path(vault_dir) / "assets"
+            result = run_attachment_migration(export_dir, str(assets_target))
+            if result.get('copied', 0) > 0:
+                print(f"✅ Obsidian: 已复制 {result['copied']} 个附件到 assets/")
+                return True
+            else:
+                print("⚠️ Obsidian: 未找到需要复制的附件")
+                return True
+        else:
+            print("⚠️ Obsidian: 未配置 Vault 目录（或目录无效），跳过附件复制")
+            return True
+    else:
+        auto_copy = confirm_action("\n是否复制附件到 assets/ 子目录？")
+        if auto_copy:
+            from migrator import run_attachment_migration
+            vault_dir = get_user_input("请输入 Obsidian Vault 目录", remember_key='obsidian_vault')
+            if vault_dir and os.path.exists(vault_dir):
+                assets_target = Path(vault_dir) / "assets"
+                result = run_attachment_migration(export_dir, str(assets_target))
+                if result.get('copied', 0) > 0:
+                    print(f"\n✅ 已复制 {result['copied']} 个附件到 assets/")
+            else:
+                print("❌ Vault 目录不存在或无效")
+
+        prompt_continue("按 Enter 返回...")
+        return True
+
+
+def prompt_continue(prompt="按 Enter 继续..."):
+    """提示用户继续"""
+    input(prompt)
+
+
+def get_user_input(prompt, default=None, remember_key=None):
+    """获取用户输入，支持默认值和记忆功能
+
+    Args:
+        prompt: 提示文字
+        default: 默认值
+        remember_key: 记忆键名，用于记住用户输入
+    """
+    # 如果没有提供默认值但有记忆值，使用记忆值
+    if default is None and remember_key:
+        default = _config.get(remember_key)
+
+    if default:
+        response = input(f"{prompt} [{default}]: ").strip()
+        result = response if response else default
+    else:
+        result = input(f"{prompt}: ").strip()
+
+    # 如果提供了记忆键且用户有输入，保存记忆
+    if remember_key and result:
+        _config.set(remember_key, result)
+
+    return result
+
+
+def confirm_action(prompt):
+    """确认操作，默认为 y"""
+    while True:
+        resp = input(f"{prompt} (Y/n): ").strip().lower()
+        if resp in ('y', 'yes', '是', ''):
+            return True
+        elif resp in ('n', 'no', '否'):
+            return False
+        else:
+            print("请输入 y 或 n")
+
+
+def step1_detect_data_dir():
+    """步骤1: 检测为知笔记数据目录"""
+    print_step(1, "检测为知笔记数据目录")
+
+    # 从模板读取说明
+    template_content = load_template("step1_detect_data_dir.md")
+    print(template_content)
+
+    from detector import detect_wiz_data_dir
+    detected_dir = detect_wiz_data_dir()
+
+    if detected_dir:
+        print(f"\n✅ 自动检测到数据目录: {detected_dir}")
+        use_detected = confirm_action("使用检测到的目录？")
+        if use_detected:
+            _config.set_data_dir(detected_dir)
+            return detected_dir
+
+    print("\n⚠️  未能自动检测到数据目录")
+
+    while True:
+        # 使用记忆功能，自动填入上次输入的值
+        user_path = get_user_input(
+            "\n请输入数据目录完整路径",
+            remember_key='data_dir'
+        )
+        if os.path.exists(user_path):
+            print(f"✅ 路径验证通过: {user_path}")
+            _config.set_data_dir(user_path)
+            return user_path
+        else:
+            print("❌ 路径不存在，请重新输入")
+
+
+def step2_export_guide():
+    """步骤2: 显示导出操作指南"""
+    print_step(2, "手动导出为知笔记")
+
+    # 从模板读取说明
+    template_content = load_template("step2_export_guide.md")
+    print(template_content)
+
+    # 使用记忆功能，自动填入上次输入的值
+    export_dir = get_user_input(
+        "\n请输入导出目标文件夹路径",
+        remember_key='export_dir'
+    )
+    while not export_dir:
+        print("路径不能为空")
+        export_dir = get_user_input("请输入导出目标文件夹路径", remember_key='export_dir')
+
+    print(f"\n📁 导出目录已记录: {export_dir}")
+    return export_dir
+
+
+def step3_attachment_migration(data_dir, export_dir):
+    """步骤3: 附件迁移"""
+    print_step(3, "附件批量迁移")
+
+    # 从模板读取说明
+    template_content = load_template("step3_attachment_migration.md")
+    print(template_content)
+
+    # 询问是否自动迁移
+    auto_migrate = confirm_action("\n是否现在自动迁移附件？")
+    if not auto_migrate:
+        print("\n📋 手动迁移说明:")
+        print("1. 打开附件目录: " + data_dir)
+        print("2. 复制 _Attachments 文件夹到导出目录: " + export_dir)
+        print("3. 确保所有 _files 文件夹都已复制")
+
+        # 仍然生成脚本文件供用户使用
+        script_path = SCRIPTS_DIR / "copy_attachments.bat"
+        print(f"\n📝 批处理脚本已准备: {script_path}")
+        print("使用时请修改脚本中的 SOURCE_DIR 和 TARGET_DIR")
+        return False
+
+    # 自动迁移
+    print("\n正在准备附件迁移...")
+
+    # 自动推断目标目录（通常是导出目录）
+    default_target = export_dir
+    custom_target = get_user_input(
+        "请输入附件目标目录（回车使用导出目录）",
+        default=default_target
+    )
+
+    print(f"\n源目录: {data_dir}")
+    print(f"目标目录: {custom_target}")
+
+    proceed = confirm_action("确认开始迁移？（原数据将保留）")
+    if not proceed:
+        print("已取消迁移")
+        return False
+
+    # 运行迁移
+    print("\n开始附件迁移，请稍候...")
+    from migrator import run_attachment_migration
+    result = run_attachment_migration(
+        source_dir=data_dir,
+        target_dir=custom_target
+    )
+
+    # 显示结果
+    print("\n" + "=" * 60)
+    print("迁移结果:")
+    print(f"  ✅ 成功复制: {result.get('copied', 0)} 个")
+    print(f"  ⏭️  已存在跳过: {result.get('skipped', 0)} 个")
+    print(f"  ❌ 失败: {result.get('failed', 0)} 个")
+    print("=" * 60)
+
+    if result.get('failed', 0) > 0:
+        print("\n⚠️  部分文件复制失败，请检查权限或磁盘空间")
+
+    return True
+
+
+def step4_convert_to_markdown(export_dir):
+    """步骤4: HTML 转换为 Markdown"""
+    print_step(4, "HTML 转换为 Markdown")
+
+    # 从模板读取说明
+    template_content = load_template("step4_convert_markdown.md")
+    print(template_content)
+
+    # 选择转换方案（使用记忆功能）
+    print("\n请选择转换方案:")
+    print("  A: Pandoc（推荐，质量高）")
+    print("  B: html2text（Python 原生方案）")
+
+    # 获取上次选择的方案作为默认
+    default_choice = _config.get_converter_choice()
+    choice = get_user_input("\n请输入选择 (A/B)", default=default_choice).upper()
+    while choice not in ('A', 'B'):
+        print("无效选择，请输入 A 或 B")
+        choice = get_user_input("请输入选择 (A/B)", default=default_choice).upper()
+
+    # 保存选择
+    _config.set_converter_choice(choice)
+    use_pandoc = (choice == 'A')
+
+    # 获取输出目录（带记忆功能）
+    print("\n📁 输入/输出设置:")
+    print(f"  源目录（HTML文件）: {export_dir}")
+    print("  输出目录（Markdown保存位置）: ")
+
+    # 询问是否使用默认输出目录
+    use_default_output = confirm_action("使用与源目录相同的输出目录？")
+    if use_default_output:
+        output_dir = export_dir
+    else:
+        output_dir = get_user_input(
+            "请输入输出目录完整路径",
+            remember_key='output_dir'
+        )
+        while not output_dir:
+            print("路径不能为空")
+            output_dir = get_user_input("请输入输出目录完整路径", remember_key='output_dir')
+
+    print(f"\n📁 源目录: {export_dir}")
+    print(f"📁 输出目录: {output_dir}")
+
+    proceed = confirm_action("确认开始转换？")
+    if not proceed:
+        print("已取消转换")
+        return False
+
+    # 执行转换
+    if use_pandoc:
+        from pandoc_converter import convert_with_pandoc
+        result = convert_with_pandoc(
+            export_dir=export_dir,
+            output_dir=output_dir,
+            auto_install=True,
+            skip_existing=True,
+            verbose=True
+        )
+    else:
+        from pandoc_converter import convert_with_html2text
+        result = convert_with_html2text(
+            export_dir=export_dir,
+            output_dir=output_dir,
+            auto_install=True,
+            skip_existing=True,
+            verbose=True
+        )
+
+    # 显示结果
+    if result.get('success'):
+        print("\n🎉 转换完成！")
+        print(f"成功转换: {result.get('converted', 0)} 个文件")
+        return True
+    else:
+        print("\n❌ 转换失败")
+        print(result.get('error', '未知错误'))
+        return False
+
+
+def step5_summary(data_dir, export_dir, migrated, converted):
+    """步骤5: 总结和后续步骤"""
+    print_step(5, "迁移完成 - 后续步骤")
+
+    # 从模板读取说明
+    template_content = load_template("step4_summary.md")
+    print(template_content)
+
+    checklist = [
+        ("为知笔记已导出 HTML 到指定文件夹", True),
+        ("每个 HTML 文件旁都有 _files 文件夹", True),
+        ("打开 HTML 能正常显示图片/附件", True),
+        ("附件已复制到目标位置", migrated),
+        ("HTML 已转换为 Markdown 格式", converted),
+        ("在浏览器中测试 HTML 文件", False)
+    ]
+
+    for item, checked in checklist:
+        status = "✅" if checked else "⏳"
+        print(f"  {status} {item}")
+
+    print("\n💾 原数据已保留，可随时返回检查")
+
+
+def start_wizard():
+    """启动迁移向导"""
+    clear_screen()
+    print_banner()
+
+    print("这个向导将帮助你完成为知笔记的数据迁移。")
+    print("你可以选择执行特定的阶段，跳过不需要的步骤。\n")
+
+    # 显示阶段选择菜单
+    show_stage_menu()
+
+    # 获取用户选择
+    selection = input("请输入阶段编号（支持多选，如 1,2 或 1,2,3，直接回车默认执行全部）: ").strip()
+
+    # 解析选择（空输入默认执行全部阶段）
+    if not selection:
+        print("\n📋 未输入，默认执行全部阶段")
+        selected_stages = sorted(STAGES.keys(), key=lambda x: int(x))
+    else:
+        selected_stages = parse_stage_selection(selection)
+
+    while not selected_stages:
+        print("\n❌ 无效选择，请重新输入")
+        selection = input("请输入阶段编号（直接回车默认执行全部）: ").strip()
+        if not selection:
+            selected_stages = sorted(STAGES.keys(), key=lambda x: int(x))
+        else:
+            selected_stages = parse_stage_selection(selection)
+
+    print(f"\n✅ 已选择阶段: {', '.join(STAGES[s]['name'] for s in selected_stages)}")
+
+    # 执行确认
+    proceed = confirm_action("\n确认开始执行？")
+    if not proceed:
+        print("已取消")
+        return
+
+    # 执行各阶段
+    context = {}
+    results = {}
+
+    for stage_key in selected_stages:
+        print(f"\n{'#'*60}")
+        print(f"# 开始执行: {STAGES[stage_key]['name']}")
+        print(f"{'#'*60}")
+
+        if stage_key == '1':
+            result = run_stage1()
+            context.update(result)
+            results['stage1'] = result
+        elif stage_key == '2':
+            results['stage2'] = run_stage2(context)
+        elif stage_key == '3':
+            results['stage3'] = run_stage3(context)
+
+        # 阶段间提示
+        if stage_key != selected_stages[-1]:
+            prompt_continue("\n按 Enter 继续下一阶段...")
+
+    # 显示总结
+    print("\n" + "=" * 60)
+    print("  执行完成！")
+    print("=" * 60)
+
+    # 输出结果摘要
+    print("\n执行结果:")
+    if 'stage1' in results:
+        r = results['stage1']
+        print(f"  ✅ 阶段1: 导出为知笔记")
+        print(f"     数据目录: {r.get('data_dir', 'N/A')}")
+        print(f"     导出目录: {r.get('export_dir', 'N/A')}")
+
+    if results.get('stage2'):
+        print(f"  ✅ 阶段2: 转换为 Markdown - 成功")
+    elif 'stage2' in results:
+        print(f"  ⚠️  阶段2: 转换为 Markdown - 已跳过或失败")
+
+    if results.get('stage3'):
+        print(f"  ✅ 阶段3: 转换为其他格式 - 成功")
+    elif 'stage3' in results:
+        print(f"  ⚠️  阶段3: 转换为其他格式 - 已跳过或未实现")
+
+    print("\n祝你使用愉快！")
+
+
+if __name__ == "__main__":
+    try:
+            # 导入子模块
+            from detector import detect_wiz_data_dir
+            from guide_generator import generate_export_guide
+            from migrator import run_attachment_migration
+            from pandoc_converter import convert_with_pandoc, convert_with_html2text
+
+            # 更新全局函数引用
+            globals()['detect_wiz_data_dir'] = detect_wiz_data_dir
+            globals()['generate_export_guide'] = generate_export_guide
+            globals()['run_attachment_migration'] = run_attachment_migration
+            globals()['convert_with_pandoc'] = convert_with_pandoc
+            globals()['convert_with_html2text'] = convert_with_html2text
+
+            start_wizard()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  操作已取消")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ 发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

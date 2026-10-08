@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 import json
 
-# 添加 scripts 目录到路径
-SCRIPTS_DIR = Path(__file__).parent / 'scripts'
+# 添加 scripts 目录到路径（相对于本测试文件）
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent / 'scripts'
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 # 导入函数

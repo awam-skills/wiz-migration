@@ -1,7 +1,8 @@
 import sys
 import os
-# 添加脚本目录到路径
-sys.path.insert(0, r'C:\Users\Administrator\.codebuddy\skills\wiz-migration\scripts')
+from pathlib import Path
+# 添加脚本目录到路径（相对于本测试文件）
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 # 导入模块测试
 from detector import detect_wiz_data_dir

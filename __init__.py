@@ -41,26 +41,20 @@ __all__ = [
     "batch_convert",
     "convert_with_pandoc",
     "interactive_convert",
-    # 向导
-    "start_wizard"
 ]
-
-# 导入主程序中的 start_wizard 函数
-try:
-    from bin.wiz-migrate import start_wizard
-    __all__.append("start_wizard")
-except ImportError:
-    pass
 
 
 def quick_start():
     """
     快速启动向导
-    
-    相当于: start_wizard()
+
+    相当于: python bin/wiz-migrate
     """
-    from bin.wiz-migrate import start_wizard
-    start_wizard()
+    import subprocess
+    import sys
+    from pathlib import Path
+    script = Path(__file__).parent / "bin" / "wiz-migrate"
+    subprocess.run([sys.executable, str(script)])
 
 
 if __name__ == "__main__":

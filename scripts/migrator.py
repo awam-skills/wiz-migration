@@ -168,17 +168,15 @@ def _run_batch_script(script_path, source_dir, target_dir):
     """
     import subprocess
     
-    # 修改脚本中的路径
+    # 替换脚本中的路径占位符
     script_content = Path(script_path).read_text(encoding='utf-8')
-    
-    # 替换路径
     script_content = script_content.replace(
-        'set "SOURCE_DIR=C:\\Users\\Administrator\\Documents\\My Knowledge"',
-        f'set "SOURCE_DIR={source_dir}"'
+        'SOURCE_DIR_PLACEHOLDER',
+        str(source_dir)
     )
     script_content = script_content.replace(
-        'set "TARGET_DIR=G:\\Data\\knowledge\\wiz"',
-        f'set "TARGET_DIR={target_dir}"'
+        'TARGET_DIR_PLACEHOLDER',
+        str(target_dir)
     )
     
     # 写入临时脚本
@@ -409,4 +407,4 @@ if __name__ == "__main__":
         print("使用方法:")
         print("  python migrator.py <源目录> <目标目录>")
         print("\n示例:")
-        print('  python migrator.py "C:\\Users\\Admin\\Documents\\My Knowledge" "G:\\Data\\wiz"')
+        print('  python migrator.py "<为知笔记数据目录>" "<目标目录>"')

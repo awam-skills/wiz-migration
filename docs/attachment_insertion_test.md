@@ -18,7 +18,7 @@
 运行 `quick_test.py` 脚本进行自动化测试：
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python quick_test.py
 ```
 
@@ -39,7 +39,7 @@ python quick_test.py
 运行 `test_attachment_unit.py` 进行更全面的测试：
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python test_attachment_unit.py
 ```
 

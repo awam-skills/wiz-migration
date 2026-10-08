@@ -179,7 +179,7 @@
 ### 快速测试
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python quick_test.py
 ```
 

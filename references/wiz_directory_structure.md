@@ -149,10 +149,10 @@ Data/[账号]/attachments/[日期]/image.png
 def detect_wiz_data_dir():
     """检测为知笔记数据目录"""
     possible_paths = [
-        # Windows 标准路径
-        r"C:\Users\%USERNAME%\Documents\My Knowledge\Data",
-        # macOS 标准路径
-        os.path.expanduser("~/Documents/My Knowledge/Data"),
+        # 环境变量指定的数据目录
+        os.environ.get("WIZ_DATA_DIR", ""),
+        # Windows / macOS 当前用户标准路径
+        os.path.join(os.path.expanduser("~"), "Documents", "My Knowledge", "Data"),
         # Linux 标准路径
         os.path.expanduser("~/.wiznotes/Data"),
         # 其他可能路径

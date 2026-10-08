@@ -1,5 +1,6 @@
 import sys
-sys.path.insert(0, r'C:\Users\Administrator\.codebuddy\skills\wiz-migration\scripts')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 try:
     from detector import detect_wiz_data_dir

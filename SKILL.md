@@ -52,16 +52,17 @@ tags: ["migration", "wiz", "笔记", "数据迁移", "文档处理"]
 - `wiz_directory_structure.md` - 为知笔记目录结构详解
 - `export_requirements.md` - 导出格式要求说明
 - `pandoc_usage.md` - Pandoc转换配置和最佳实践
-- `attachment_mapping.md` - 附件映射和路径修复逻辑
-- `error_solutions.md` - 常见错误解决方案
+
+附件映射和路径修复逻辑的示例见 `docs/attachment_mapping_example.md`。
 
 ### templates/ 目录 - 模板文件
 
-提供可重复使用的模板：
+提供迁移向导各步骤的模板：
 
-- `export_guide_template.md` - 导出指南模板
-- `migration_log_template.json` - 迁移日志模板
-- `attachment_mapping_template.json` - 附件映射模板
+- `step1_detect_data_dir.md` - 步骤1：检测数据目录
+- `step2_export_guide.md` - 步骤2：生成导出指南
+- `step3_attachment_migration.md` / `step3_logseq_migration.md` - 步骤3：附件迁移 / Logseq 迁移
+- `step4_convert_markdown.md` / `step4_summary.md` - 步骤4：格式转换与迁移总结
 
 ## 迁移工作流执行步骤
 
@@ -120,8 +121,8 @@ python scripts/migrator.py
 from wiz_migration import run_attachment_migration
 
 result = run_attachment_migration(
-    source_dir="C:/Users/Administrator/Documents/My Knowledge",
-    target_dir="G:/Data/knowledge/wiz"
+    source_dir="C:/Users/<你的用户名>/Documents/My Knowledge",
+    target_dir="D:/Data/knowledge/wiz"
 )
 ```
 
@@ -215,7 +216,7 @@ convert_for_logseq(markdown_dir="C:/Wiz_Markdown", logseq_dir="D:/Logseq")
 from scripts.migrator import migrate_wiz_notes
 
 config = {
-    "wiz_data_dir": "C:/Users/Administrator/Documents/My Knowledge",
+    "wiz_data_dir": "C:/Users/<你的用户名>/Documents/My Knowledge",
     "export_dir": "C:/Wiz_Export",
     "output_dir": "D:/Migrated_Notes",
     "convert_to_md": True,
@@ -381,11 +382,11 @@ scripts/
 # 运行单元测试
 python -m pytest tests/
 
-# 执行集成测试
-python scripts/migrator.py --test-mode
+# 执行附件迁移冒烟测试
+python scripts/migrator.py "<源目录>" "<目标目录>"
 
 # 验证迁移结果
-python scripts/verifier.py <迁移结果目录>
+python scripts/add_attachments.py --check <迁移结果目录>
 ```
 
 ## 技术参考信息
@@ -417,7 +418,7 @@ My Knowledge/
 
 ### 附件映射和路径修复
 
-参考`references/attachment_mapping.md`获取详细逻辑：
+参考`docs/attachment_mapping_example.md`获取详细逻辑：
 
 - 附件位置检测算法
 - 相对路径计算方法

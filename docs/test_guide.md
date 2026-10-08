@@ -19,7 +19,7 @@
 **运行方法：**
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python quick_test.py
 ```
 
@@ -99,7 +99,7 @@ python quick_test.py
 **运行方法：**
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python test_attachment_unit.py
 ```
 
@@ -130,7 +130,7 @@ python test_attachment_unit.py
 **运行方法：**
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python test_attachment_simple.py
 ```
 
@@ -180,7 +180,7 @@ for md in md_files:
 如果还没有迁移，运行：
 
 ```bash
-cd c:\Users\Administrator\.codebuddy\skills\wiz-migration
+cd <技能根目录>
 python bin\wiz-migrate
 ```
 
@@ -288,10 +288,10 @@ print(f"路径前缀: {assets_prefix}assets/")
 python --version
 
 # 检查脚本路径
-dir c:\Users\Administrator\.codebuddy\skills\wiz-migration
+dir <技能根目录>
 
 # 尝试直接运行
-python c:\Users\Administrator\.codebuddy\skills\wiz-migration\quick_test.py
+python tests\quick_test.py
 ```
 
 ### 问题 2: 附件路径不正确

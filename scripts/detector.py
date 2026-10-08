@@ -15,13 +15,11 @@ def detect_wiz_data_dir():
         str: 检测到的带账户名的数据目录路径，如果未找到则返回 None
     """
     possible_base_paths = [
-        # Windows 标准路径
-        r"C:\Users\Administrator\Documents\My Knowledge\Data",
-        r"C:\Users\%USERNAME%\Documents\My Knowledge\Data",
-        # 当前用户路径
+        # 环境变量指定的数据目录（指向包含账户子目录的 Data 目录）
+        os.environ.get("WIZ_DATA_DIR", ""),
+        # Windows / macOS 当前用户标准路径
         os.path.join(os.path.expanduser("~"), "Documents", "My Knowledge", "Data"),
-        # Linux/Mac 可能路径 (如果使用跨平台版本)
-        os.path.join(os.path.expanduser("~"), "Documents", "My Knowledge", "Data"),
+        # 跨平台版本备用路径
         os.path.join(os.path.expanduser("~"), ".wiznotes", "Data"),
     ]
 

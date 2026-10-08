@@ -8,4 +8,4 @@
 2. 点击用户头像
 3. 选择"维护>"
 4. 点击"打开账户数据存储文件夹"
-5. 复制打开的文件夹路径（例如C:\Users\Administrator\Documents\My Knowledge\Data\abc@126.com）
+5. 复制打开的文件夹路径（例如 `C:\Users\<你的用户名>\Documents\My Knowledge\Data\<账户名>`）
